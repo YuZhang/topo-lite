@@ -1,11 +1,12 @@
 topo-lite
 =========
 
-extract AS topology from BGP view projects
+Extract AS topology from BGP view projects
+
 - BGP view projects:
-     - RouteViews
-     - RIPE RIS
-     - PCH
+     - Route Views: [http://archive.routeviews.org]
+     - RIPE RIS: [http://data.ris.ripe.net]
+     - PCH Data: [https://www.pch.net/resources/data.php]
 
 - MRT to plain txt
      - a modified bgpdump: hg clone https://bitbucket.org/dkhenry/bgpdump (the original bgpdump has bugs)
