@@ -1,7 +1,8 @@
-#!/usr/bin/perl -Wall
+#!/usr/bin/perl
 
 # extract 'YYYYMMDD ASN1 ASN2' from the output of 'bgpdump -mv'
-# convention: ASN1 < ASN2 in undirected link
+# convention: ASN1 < ASN2 as undirected links
+# with a bogus ASN filter
 #
 # input example:
 # TABLE_DUMP|1027381055|B|193.203.0.1|1853|3.0.0.0/8|1853 1239 80|IGP|193.203.0.1|0|0||NAG||
@@ -13,12 +14,53 @@
 # yzhang 20130524
 
 use strict;
-$\=''; #reset the end of line
+use warnings;
 
-my %links;
+my $bogus_asn_file = "bogus-asn.txt";
+my @bogus_asn;  #bogus ASN list
+my %links;      #AS links
 
+&load_bogus_asn($bogus_asn_file);
 while(my $line = <>) {
   chomp $line;
+  &extract_from_bgpdump($line);
+}
+
+#dump links
+foreach my $ts (sort keys %links) {
+  foreach my $link (keys %{$links{$ts}}) {
+    #filter out bogus ASNs
+    next if ($link !~ /^(\d+)\t(\d+)$/ or &is_bogus($1) or &is_bogus($2));
+    print "$ts\t$link\n";
+  }
+}
+
+sub load_bogus_asn {
+  my $fn = shift;
+  open(my $fh, "<", $fn) or die "cannot open < $fn $!";
+  while(<$fh>) {
+    chomp;
+    $_ =~ s/^\s+//;
+    my @record = split /\s+/, $_ || "0";
+    if ($record[0] and $record[0] =~ /^(\d+)-(\d+)$/) {
+      push @bogus_asn, [$1, $2];
+    } elsif ($record[0] =~ /^\d+$/) {
+      push @bogus_asn, [$record[0], $record[0]];
+    }
+  } 
+  close $fh;
+}
+
+sub is_bogus {
+  my $asn  = shift;
+  foreach my $range (@bogus_asn) {
+    return 1 if ($asn >= $range->[0] and $asn <= $range->[1]);
+  }
+  return 0;
+}
+
+sub extract_from_bgpdump {
+  my $line = shift;
   my @record = split /\|/, $line;
   next unless ($record[6]);  
   my @time = localtime($record[1]);
@@ -35,11 +77,5 @@ while(my $line = <>) {
       $links{$ts}{$newlink}=1;
     }
     $last_as = $as;
-  }
-}
-
-foreach my $ts (sort keys %links) {
-  foreach my $link (keys %{$links{$ts}}) {
-    print "$ts\t$link\n";
   }
 }
