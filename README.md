@@ -13,5 +13,5 @@ Extract AS topology from BGP view projects
      - don't need unzip as bgpdump can handle uncompressed, gzip, and bz2 files
      - don't warry about 32bit ASN. bgpdump and perl can handle it.
 
-- extractor
+- Extractor
      - bogus ASN list from http://www.iana.org/assignments/as-numbers/as-numbers.txt retrived on 2013-05-24
