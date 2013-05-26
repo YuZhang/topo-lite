@@ -1,7 +1,7 @@
 #http://www.iana.org/assignments/as-numbers/as-numbers.txt retrived on 2013-05-24
 0                 Reserved  
 23456             AS_TRANS 
-62464-131071      Reserved by the IANA
+62464-131071      Reserved
 133120-196607     Unallocated
 199680-262143     Unallocated
 263168-327679     Unallocated

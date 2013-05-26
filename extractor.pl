@@ -1,36 +1,40 @@
 #!/usr/bin/perl
 
-# Extract AS links in format 'YYYYMMDD ASN1 ASN2' from 'bgpdump -mv' and cisco 'show ip bgp'
-# also discard AS-SET and filter out bogus ASNs 
+# Extract AS links in format 'YYYYMMDD ASN1 ASN2' from 'bgpdump -mv' MRT
+# also discard AS-SETs, filter out bogus ASNs, and skip loop paths. 
 #
-# Input: UNIX timestamp, space-seperated AS-path  
-#   Example 1: TABLE_DUMP|1027381055|B|193.203.0.1|1853|3.0.0.0/8|1853 1239 80|IGP|193.203.0.1|0|0||NAG||
-#   Example 2: CISCO| ||||| |||||||| 
+# Input: TABLE_DUMP|1027381055|B|193.203.0.1|1853|3.0.0.0/8|1853 1239 80|IGP|193.203.0.1|0|0||NAG||
+# Output: 'YYYYMMDD ASN1 ASN2' (convention: ASN1 < ASN2 as undirected links, \t as field seperator)
 #
-# Output: 'YYYYMMDD ASN1 ASN2' (convention: ASN1 < ASN2 as undirected links, \t as seperator)
-#
-# Don't warry about 32bit ASN. bgpdump and perl can handle it.
+# Note:
+# - Don't warry about 32bit ASN. bgpdump and perl can handle it.
 # 
 # yzhang 20130524
 
 use strict;
 use warnings;
 
-my $bogus_asn_file = "bogus-asn.txt";  #bogus ASN file name
-my @bogus_asn;                         #a list of bogus ASN ranges
-my %links;                             #AS links with timestamp YYYYMMDD
+my $BOGUS_ASN_FILE = "bogus-asn.txt";  # bogus ASN file name
+my @BOGUS_ASN = ();                    # a list of bogus ASN ranges
+my %LINKS = ();                        # AS links with timestamp YYYYMMDD
 
 sub load_bogus_asn($); 
 sub is_bogus($);
-sub extract_from_bgpdump($);
-sub dump_links();
+sub extract_from_mrt($);
+sub dump_links($);
 
 # ========= MAIN ============================================
-&load_bogus_asn($bogus_asn_file);
+&load_bogus_asn($BOGUS_ASN_FILE);
 while(my $line = <>) {
-  &extract_from_bgpdump($line);
+  my @result = &extract_from_mrt($line);
+  next unless (@result);
+  my $ts = shift @result;
+  $LINKS{$ts} = {} unless (exists $LINKS{$ts});
+  foreach (@result) {
+    $LINKS{$ts}{$_}=1;
+  }
 }
-&dump_links();
+&dump_links(\%LINKS);
 # ========= END =============================================
 
 sub load_bogus_asn($) {
@@ -41,9 +45,9 @@ sub load_bogus_asn($) {
     $_ =~ s/^\s+//;
     my @record = split /\s+/, $_ || "0";
     if ($record[0] =~ /^(\d+)-(\d+)$/) {
-      push @bogus_asn, [$1, $2];
+      push @BOGUS_ASN, [$1, $2];
     } elsif ($record[0] =~ /^\d+$/) {
-      push @bogus_asn, [$record[0], $record[0]];
+      push @BOGUS_ASN, [$record[0], $record[0]];
     }
   } 
   close $fh;
@@ -51,40 +55,46 @@ sub load_bogus_asn($) {
 
 sub is_bogus($) {
   my $asn  = shift;
-  foreach my $range (@bogus_asn) {
+  foreach my $range (@BOGUS_ASN) {
     return 1 if ($asn >= $range->[0] and $asn <= $range->[1]);
   }
   return 0;
 }
 
-sub extract_from_bgpdump($) {
+# return timestamp, link1, link2 ...
+sub extract_from_mrt($) {
+  my @result = ();
   my $line = shift;
   chomp $line;
   my @record = split /\|/, $line;
-  next unless (defined $record[6]);  
-  my @time = localtime($record[1]);
+  return unless (defined $record[7]);       # not a valid record  
+  return unless ($record[1] =~ /^\d+$/);    # not a valid timestamp
+  my @time = localtime($record[1]);         # convert UNIX timestamp to YYYYMMDD
   my $ts = ($time[5]+1900) . (sprintf "%02d" , ($time[4]+1)) . $time[3];
-  $links{$ts} = {} unless (exists $links{$ts});
+  push @result, $ts;
   
   my @ases = split /\s+/, $record[6];
   my $last_as = $ases[0];
-
+  my %detect_loop = ($last_as => 1);        # for loop detecting  
   foreach my $as (@ases) {
-    # make sure it looks like a link
-    if ($last_as =~ /^\d+$/ and $as =~ /^\d+$/ and $last_as != $as) {
-      my $newlink = ($as < $last_as) ?  "$as\t$last_as" : "$last_as\t$as";
-      $links{$ts}{$newlink}=1;
+    next if ($last_as eq $as);              # skip appending AS
+    return if (exists $detect_loop{$as});   # loop! skip the whole path
+    $detect_loop{$as}=1;                    # otherwise, remember it
+# make sure it is a valid link, dsicard AS-SET, and filter out bogus ASNs
+# then add a link to the result with convention: AS1 < AS2
+    if ("$as\t$last_as" =~ /^(\d+)\t(\d+)$/ and not &is_bogus($1) and not &is_bogus($2)) {
+      push @result, ($as < $last_as ?  "$as\t$last_as" : "$last_as\t$as");
     }
     $last_as = $as;
   }
+  return @result;
 }
 
-sub dump_links () {
-  foreach my $ts (sort keys %links) {
-    foreach my $link (keys %{$links{$ts}}) {
-      #filter out bogus ASNs
-      next if ($link !~ /^(\d+)\t(\d+)$/ or &is_bogus($1) or &is_bogus($2));
-      print "$ts\t$link\n";
+sub dump_links ($) {
+  my $link = shift;
+  foreach my $ts (sort keys %$link) {
+    foreach my $lk (keys %{$link->{$ts}}) {
+      print "$ts\t$lk\n";
     }
   }
 }
