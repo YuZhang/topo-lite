@@ -13,7 +13,6 @@ use warnings;
 sub parse($);
 
 while(<>) {
-  print "> ".$_;
   chomp;
   my @links = &parse($_);
   next unless (@links);

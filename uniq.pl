@@ -12,6 +12,6 @@ while(<>) {
   $hash{$_}=1;
 }
 
-foreach (sort keys %hash) {
+foreach (keys %hash) {
   print "$_";
 }
