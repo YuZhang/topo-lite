@@ -3,10 +3,11 @@ topo-lite
 
 Extract AS topology from BGP view projects
 
-- BGP view projects:
-    - [Route Views](http://archive.routeviews.org)
-    - [RIPE RIS](http://data.ris.ripe.net)
-    - [PCH Data](https://www.pch.net/resources/data.php)
+- Repositories of BGP view projects:
+    - [University of Oregon Route Views](http://archive.routeviews.org)
+    - [RIPE RIS Raw Data](http://data.ris.ripe.net)
+    - [PCH Route-Server RIB Dumps](https://www.pch.net/resources/data.php)
+    - [Internet2 NOC BGP RIB Dumps](http://ndb7.net.internet2.edu/bgp)
 
 - Prerequisite
     - *install* [a modified bgpdump by dkhenry](https://bitbucket.org/dkhenry/bgpdump) (which fixes bugs in the original one).
