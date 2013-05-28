@@ -6,7 +6,7 @@
 # OUTPUT: {AS1}\t{AS2}\n  (with convention: AS1 < AS2)
 # NOTE:
 #   - expected file types inlucding [un]compressed MRT or 'show ip bgp' in 
-#     plain, .bz[2], or .gz format.
+#     plain, .bz[2], or .[g]z format.
 #   - see getlink() for AS-SET, loop path, or other wierd cases.
 #   - bogus ASN list from 
 #     http://www.iana.org/assignments/as-numbers/as-numbers.txt
@@ -66,32 +66,31 @@ sub openfile($$) {         # just open, remember to close later
   my $isbgpdump = shift;
   my $openstr = $isbgpdump ? "$file | $BGPDUMP" : $file;
   my $fh;
-  if ($file =~ /\.gz$/) {
+  if ($file =~ /\.g?z$/) {         # .gz or .z
     open($fh, '-|', "gzip -dc $openstr") or die "Can not open file $openstr: $!";
-  } elsif ($file =~ /\.bz2?$/) {
+  } elsif ($file =~ /\.bz2?$/) {   # .bz2 or .bz
     open($fh, '-|', "bzip2 -dc $openstr") or die "Can not open file $openstr: $!";
-  } else {
+  } else {                         # expect it is uncompressed 
     open($fh, '-|', "cat $openstr") or die "Can not open file $openstr: $!";
   } 
   return $fh;
 }
 
 sub filetype($) {     # guess the file type by counting the % of printable ...
-  my $file = shift;   # ... chars. If > 80%, it is TXT, otherwise BIN.
+  my $file = shift;   # or whitespace chars. If > 80%, it is TXT, otherwise BIN.
   my $fh = &openfile($file, 0);
-  my $onebyte;
-  my $num_print = 0;
-  for (1 .. 1000) {
-    read($fh, $onebyte, 1);
-    $num_print ++ if ($onebyte =~ /[[:print:]]/ );
-  }
+  my $string="";
+  my $num_read = read($fh, $string, 1000);
   close $fh;
-  return ($num_print > 800? "TXT" : "BIN");
+  return "TXT" unless ($num_read);       # if nothing, guess "TXT" 
+  my $num_print = $string =~ s/[[:print:]]|\s//g;
+  return ($num_print/$num_read > 0.8 ? "TXT" : "BIN");
 }
 
 sub getpath($) {                 # read a line, return a path (or POSITION)
   my $l = shift;
   if ($POSITION) {                       # have got the position
+    return if (length($l) < $POSITION);  # too short 
     my $s = substr $l, $POSITION;        # path is from position to $
     $s =~ s/[^\d\}]*$//;                 # remove non-[ digit or } ] at the end
     return $s;
