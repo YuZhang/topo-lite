@@ -29,16 +29,14 @@ sub openfile($$) {
   return $fh;
 }
 
-# guess the file type by counting the % of printable chars 
-sub filetype($) {
-  my $file = shift;
+sub filetype($) {     # guess the file type by counting the % of printable ...
+  my $file = shift;   # or whitespace chars. If > 80%, it is TXT, otherwise BIN.
   my $fh = &openfile($file, 0);
-  my $onebyte;
-  my $num_print = 0;
-  for (1 .. 500) {
-    read($fh, $onebyte, 1);
-    $num_print ++ if ($onebyte =~ /[[:print:]]/ );
-  }
+  my $string="";
+  my $num_read = read($fh, $string, 1000);
   close $fh;
-  return ($num_print > 400? "TXT" : "BIN");
+  return "TXT" unless ($num_read);       # if nothing, guess "TXT" 
+  my $num_print = $string =~ s/[[:print:]]|\s//g;
+  return ($num_print/$num_read > 0.8 ? "TXT" : "BIN");
 }
+
