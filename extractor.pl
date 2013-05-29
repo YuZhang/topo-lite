@@ -42,13 +42,7 @@ my $fh = ($filename eq "-") ? \*STDIN : (&filetype($filename) eq "BIN") ?
          &openfile($filename, 1) : &openfile($filename, 0);
 while(<$fh>) {
   chomp;
-  my $path = &getpath($_);
-  #next unless ($path);
-  my @links = &getlink($path);
-  #next unless (@links);
-  foreach (@links) {
-    $LINKS{$_} = 1;
-  }
+  map {$LINKS{$_} = 1} (&getlink(&getpath($_)));
 }
 close $fh;
 &load_bogus_asn($BOGUS_ASN_FILE);
@@ -74,15 +68,15 @@ sub openfile($$) {         # just open, remember to close later
   return $fh;
 }
 
-sub filetype($) {     # guess the file type by counting the % of printable ...
-  my $file = shift;   # or whitespace chars. If > 80%, it is TXT, otherwise BIN.
-  my $fh = &openfile($file, 0);   # just open file w/o bgpdump
+sub filetype($) {     # guess the file type according to the % of printable ...
+  my $file = shift;   # or whitespace chars. If > 90%, it is TXT, otherwise BIN.
+  my $fh = &openfile($file, 0);   # just open file without bgpdump
   my $string="";
   my $num_read = read($fh, $string, 1000);
   close $fh;
   return "TXT" unless ($num_read);       # if nothing, guess "TXT" 
   my $num_print = $string =~ s/[[:print:]]|\s//g;
-  return ($num_print/$num_read > 0.8 ? "TXT" : "BIN");
+  return ($num_print/$num_read > 0.9 ? "TXT" : "BIN");
 }
 
 sub getpath($) {                 # read a line, return a path (or POSITION)
@@ -93,7 +87,7 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
     my $path = substr $line, $POSITION;     # path is from position to $
     $path =~ s/[^\d\}]*$//;                 # remove non-[ digit or } ] at the end
     return $path;
-  } elsif ($line =~ /^(.*?\|){6}(.*?)\|/) {    # the output of 'bgpdump -mv'
+  } elsif ($line =~ /^(.*?\|){6}(.*?)\|/) { # the output of 'bgpdump -mv'
     return $2;
   } elsif ($line =~ /Next Hop.*Path/) {     # the header of 'show ip bgp'
     $POSITION = index($line, "Path");       # remember the position of 'Path'
@@ -104,17 +98,15 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
 sub getlink($) {                 # read a path, return an array of links
   my $path = shift;
   return unless ($path);
-  $path =~ s/\{.*?\}/0/g;                 # replace all AS-SETs with token '0'  
-  return unless ($path=~ /^[\d\s\.]+$/); # weird! discard it! 
-  my @ases = split /\s+/, $path;
-  my $last_as = 0;                        # token '0'
-  my %detect_loop = ();                   # for loop detecting  
-  my @link = ();                          # store links
-  foreach my $as (@ases) {
-    if ($as =~ /^(\d+)\.(\d+)$/) {        # convert asdot to asplain
-      $as = ($1 << 16) + $2;
-    } elsif ($as !~ /^(\d+)$/) {          # if not an ASN, e.g., 1.1.1
-      return;                             # then discard it! 
+  $path =~ s/\{.*?\}/0/g;                   # replace all AS-SETs with token '0'  
+  my @ases = split /\s+/, $path;            
+  my $last_as = 0;                          # token '0'
+  my %detect_loop = ();                     # for loop detecting  
+  my @link = ();                            # store links
+  foreach my $as (@ases) {                  
+    if ($as !~ /^\d+$/) {                   # not a number 
+      return if ($as !~ /^(\d+)\.(\d+)$/);  # neither asdot, then discard it! 
+      $as = ($1 << 16) + $2;                # if asdot, convert it to asplain
     }
     next if ($last_as eq $as);              # skip appending AS
     return if (exists $detect_loop{$as});   # loop! discard it! 

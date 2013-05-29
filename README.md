@@ -15,9 +15,9 @@ Extract AS topology from BGP view projects
     - gzip and bzip2, although bgpdump can handle gzip and bz2 files
     - large disk space if 
 
-
-- Checklist in the case of errors
-    - [ ] Have URLs to the repos been changed?  
+- Checklist for future maintainers
+    - [ ] Have the URLs to the repositories been changed?  
+    - [X]  
 
 - Notes
     - don't warry about 32bit ASN. bgpdump and perl can handle it.
