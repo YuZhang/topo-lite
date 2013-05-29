@@ -13,7 +13,7 @@
 #     retrived on 2013-05-24
 #
 # TODO:
-#   - speed up getlink(), especially on regexp
+#   - Is there any space to improve performance, especially on regex?
 
 use strict;
 use warnings;
@@ -22,18 +22,18 @@ sub openfile($$);   # open [un]compressed file (and pipe to bgpdump if set 1)
 sub filetype($);    # guess type: TXT (show ip bgp) or BIN (means MRT)
 sub getpath($);     # get AS path (or its position)
 sub getlink($);     # get AS links from AS path
-sub is_bogus($);    # whether ASN is bogus
-sub load_bogus($);  # load BOGUS_ASN_FILE
+sub isbogus($);    # whether ASN is bogus
+sub loadbogus($);  # load BOGUS_ASN_FILE
 
 # HARDCODE:
 #   - the header of 'show ip bgp' 
 #   - remember the position of 'Path'   
 #
 my $BGPDUMP = "bgpdump -mv -";         # bgpdump commond
-my $BOGUS_ASN_FILE = "bogus-asn.txt";  # bogus ASN file name
+my $BOGUSFILE = "bogus-asn.txt";  # bogus ASN file name
 my $POSITION = 0;   # the start position of 'Path' in 'show ip bgp'
 my %LINKS = ();                        # hashtable of links          
-my @BOGUS_ASN = ();                    # a list of bogus ASN ranges
+my @BOGUSASN = ();                    # a list of bogus ASN ranges
 
 # MAIN =========================================================================
 my $filename = $ARGV[0] ? $ARGV[0] : "-";
@@ -45,9 +45,9 @@ while(<$fh>) {
   map {$LINKS{$_} = 1} (&getlink(&getpath($_)));
 }
 close $fh;
-&load_bogus_asn($BOGUS_ASN_FILE);
+&loadbogus($BOGUSFILE);
 foreach (keys %LINKS) {    # dump links with a bogus filter
-  next if ($_ !~ /^(\d+)\s+(\d+)$/ or is_bogus($1) or is_bogus($2));
+  next if ($_ !~ /^(\d+)\s+(\d+)$/ or isbogus($1) or isbogus($2));
   print "$_\n";
 }
 exit 0;
@@ -83,11 +83,10 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
   my $line = shift;
   return unless ($line);
   if ($POSITION) {                          # have got the position
-    return if (length($line) < $POSITION);  # too short 
-    my $path = substr $line, $POSITION;     # path is from position to $
-    $path =~ s/[^\d\}]*$//;                 # remove non-[ digit or } ] at the end
+    my $path = substr $line, $POSITION, -1; # path w/o ORGIN code at the end
+    return unless ($path);                  # too short 
     return $path;
-  } elsif ($line =~ /^(.*?\|){6}(.*?)\|/) { # the output of 'bgpdump -mv'
+  } elsif ($line =~ /^([^\|]*\|){6}([^\|]*)\|/) { # the output of 'bgpdump -mv'
     return $2;
   } elsif ($line =~ /Next Hop.*Path/) {     # the header of 'show ip bgp'
     $POSITION = index($line, "Path");       # remember the position of 'Path'
@@ -98,14 +97,14 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
 sub getlink($) {                 # read a path, return an array of links
   my $path = shift;
   return unless ($path);
-  $path =~ s/\{.*?\}/0/g;                   # replace all AS-SETs with token '0'  
-  my @ases = split /\s+/, $path;            
+  $path =~ s/\{[^\}]*\}/0/g;                # replace all AS-SETs with token '0'  
+  my @ases = split /\s+/, $path;
   my $last_as = 0;                          # token '0'
   my %detect_loop = ();                     # for loop detecting  
   my @link = ();                            # store links
   foreach my $as (@ases) {                  
-    if ($as !~ /^\d+$/) {                   # not a number 
-      return if ($as !~ /^(\d+)\.(\d+)$/);  # neither asdot, then discard it! 
+    if ($as !~ /^\d+$/) {                   # not asplain
+      return if ($as !~ /^(\d+)\.(\d+)$/);  # neither asdot, then discard it!
       $as = ($1 << 16) + $2;                # if asdot, convert it to asplain
     }
     next if ($last_as eq $as);              # skip appending AS
@@ -118,7 +117,7 @@ sub getlink($) {                 # read a path, return an array of links
   return @link;
 }
 
-sub load_bogus_asn($) {
+sub loadbogus($) {
   my $fn = shift;
   open(my $fh, "<", $fn) or die "cannot open < $fn $!";
   while(<$fh>) {
@@ -126,17 +125,17 @@ sub load_bogus_asn($) {
     $_ =~ s/^\s+//;
     my @record = split /\s+/, $_ || "0";
     if ($record[0] =~ /^(\d+)-(\d+)$/) {   # a range ASN1-ASN2
-      push @BOGUS_ASN, [$1, $2];
+      push @BOGUSASN, [$1, $2];
     } elsif ($record[0] =~ /^\d+$/) {      # a single ASN
-      push @BOGUS_ASN, [$record[0], $record[0]];
+      push @BOGUSASN, [$record[0], $record[0]];
     }
   } 
   close $fh;
 }
 
-sub is_bogus($) {
+sub isbogus($) {
   my $asn  = shift;
-  foreach my $range (@BOGUS_ASN) {
+  foreach my $range (@BOGUSASN) {
     return 1 if ($asn >= $range->[0] and $asn <= $range->[1]);
   }
   return 0;
