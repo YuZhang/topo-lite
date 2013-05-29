@@ -83,8 +83,8 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
   my $line = shift;
   return unless ($line);
   if ($POSITION) {                          # have got the position
+    return if (length($line) < $POSITION+1);# too short 
     my $path = substr $line, $POSITION, -1; # path w/o ORGIN code at the end
-    return unless ($path);                  # too short 
     return $path;
   } elsif ($line =~ /^([^\|]*\|){6}([^\|]*)\|/) { # the output of 'bgpdump -mv'
     return $2;
