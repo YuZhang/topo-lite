@@ -22,18 +22,18 @@ sub openfile($$);   # open [un]compressed file (and pipe to bgpdump if set 1)
 sub filetype($);    # guess type: TXT (show ip bgp) or BIN (means MRT)
 sub getpath($);     # get AS path (or its position)
 sub getlink($);     # get AS links from AS path
-sub isbogus($);    # whether ASN is bogus
-sub loadbogus($);  # load BOGUS_ASN_FILE
+sub isbogus($);     # whether ASN is bogus
+sub loadbogus($);   # load BOGUS_ASN_FILE
 
 # HARDCODE:
 #   - the header of 'show ip bgp' 
 #   - remember the position of 'Path'   
 #
 my $BGPDUMP = "bgpdump -mv -";         # bgpdump commond
-my $BOGUSFILE = "bogus-asn.txt";  # bogus ASN file name
+my $BOGUSFILE = "bogus-asn.txt";       # bogus ASN file name
 my $POSITION = 0;   # the start position of 'Path' in 'show ip bgp'
 my %LINKS = ();                        # hashtable of links          
-my @BOGUSASN = ();                    # a list of bogus ASN ranges
+my @BOGUSASN = ();                     # a list of bogus ASN ranges
 
 # MAIN =========================================================================
 my $filename = $ARGV[0] ? $ARGV[0] : "-";
@@ -83,8 +83,8 @@ sub getpath($) {                 # read a line, return a path (or POSITION)
   my $line = shift;
   return unless ($line);
   if ($POSITION) {                          # have got the position
-    return if (length($line) < $POSITION+1);# too short 
-    my $path = substr $line, $POSITION, -1; # path w/o ORGIN code at the end
+    return if (length($line) < $POSITION+2);# too short 
+    my $path = substr $line, $POSITION, -2; # path w/o ORGIN code at the end
     return $path;
   } elsif ($line =~ /^([^\|]*\|){6}([^\|]*)\|/) { # the output of 'bgpdump -mv'
     return $2;
