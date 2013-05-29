@@ -6,7 +6,7 @@
 # OUTPUT: {AS1}\t{AS2}\n  (with convention: AS1 < AS2)
 # NOTE:
 #   - expected file types inlucding [un]compressed MRT or 'show ip bgp' in 
-#     plain, .bz[2], or .[g]z format.
+#     plain, .bz[2], or .[g]z format. Also support plain text from STDIN.
 #   - see getlink() for AS-SET, loop path, or other wierd cases.
 #   - bogus ASN list from 
 #     http://www.iana.org/assignments/as-numbers/as-numbers.txt
@@ -36,18 +36,16 @@ my %LINKS = ();                        # hashtable of links
 my @BOGUS_ASN = ();                    # a list of bogus ASN ranges
 
 # MAIN =========================================================================
-($ARGV[0]) or die "usage: inputfile";
-my $filename = shift;
-(-f $filename) or die "can not find $filename";
-# if BIN, open with BGPDUMP
-my $fh = (&filetype($filename) eq "BIN") ?     
+my $filename = $ARGV[0] ? $ARGV[0] : "-";
+# if "-", expect plain text from STDIN; if BIN, open with BGPDUMP
+my $fh = ($filename eq "-") ? \*STDIN : (&filetype($filename) eq "BIN") ?     
          &openfile($filename, 1) : &openfile($filename, 0);
 while(<$fh>) {
   chomp;
   my $path = &getpath($_);
-  next unless ($path);
+  #next unless ($path);
   my @links = &getlink($path);
-  next unless (@links);
+  #next unless (@links);
   foreach (@links) {
     $LINKS{$_} = 1;
   }
@@ -78,7 +76,7 @@ sub openfile($$) {         # just open, remember to close later
 
 sub filetype($) {     # guess the file type by counting the % of printable ...
   my $file = shift;   # or whitespace chars. If > 80%, it is TXT, otherwise BIN.
-  my $fh = &openfile($file, 0);
+  my $fh = &openfile($file, 0);   # just open file w/o bgpdump
   my $string="";
   my $num_read = read($fh, $string, 1000);
   close $fh;
@@ -88,25 +86,27 @@ sub filetype($) {     # guess the file type by counting the % of printable ...
 }
 
 sub getpath($) {                 # read a line, return a path (or POSITION)
-  my $l = shift;
-  if ($POSITION) {                       # have got the position
-    return if (length($l) < $POSITION);  # too short 
-    my $s = substr $l, $POSITION;        # path is from position to $
-    $s =~ s/[^\d\}]*$//;                 # remove non-[ digit or } ] at the end
-    return $s;
-  } elsif ($l =~ /^(.*?\|){6}(.*?)\|/) { # the output of 'bgpdump -mv'
+  my $line = shift;
+  return unless ($line);
+  if ($POSITION) {                          # have got the position
+    return if (length($line) < $POSITION);  # too short 
+    my $path = substr $line, $POSITION;     # path is from position to $
+    $path =~ s/[^\d\}]*$//;                 # remove non-[ digit or } ] at the end
+    return $path;
+  } elsif ($line =~ /^(.*?\|){6}(.*?)\|/) {    # the output of 'bgpdump -mv'
     return $2;
-  } elsif ($l =~ /Next Hop.*Path/) {     # the header of 'show ip bgp'
-    $POSITION = index($l, "Path");       # remember the position of 'Path'
+  } elsif ($line =~ /Next Hop.*Path/) {     # the header of 'show ip bgp'
+    $POSITION = index($line, "Path");       # remember the position of 'Path'
   }
   return;
 }
 
 sub getlink($) {                 # read a path, return an array of links
-  my $line = shift;
-  $line =~ s/\{.*?\}/0/g;                 # replace all AS-SETs with token '0'  
-  return unless ($line =~ /^[\d\s\.]+$/); # weird! discard it! 
-  my @ases = split /\s+/, $line;
+  my $path = shift;
+  return unless ($path);
+  $path =~ s/\{.*?\}/0/g;                 # replace all AS-SETs with token '0'  
+  return unless ($path=~ /^[\d\s\.]+$/); # weird! discard it! 
+  my @ases = split /\s+/, $path;
   my $last_as = 0;                        # token '0'
   my %detect_loop = ();                   # for loop detecting  
   my @link = ();                          # store links
