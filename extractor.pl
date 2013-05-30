@@ -23,7 +23,6 @@ sub filetype($);    # guess type: TXT (show ip bgp) or BIN (means MRT)
 sub getpath($);     # get AS path (or its position)
 sub getlink($);     # get AS links from AS path
 sub isbogus($);     # whether ASN is bogus
-sub loadbogus($);   # load BOGUS_ASN_FILE
 
 # HARDCODE:
 #   - the header of 'show ip bgp' 
@@ -33,7 +32,17 @@ my $BGPDUMP = "bgpdump -mv -";         # bgpdump commond
 my $BOGUSFILE = "bogus-asn.txt";       # bogus ASN file name
 my $POSITION = 0;   # the start position of 'Path' in 'show ip bgp'
 my %LINKS = ();                        # hashtable of links          
-my @BOGUSASN = ();                     # a list of bogus ASN ranges
+my @BOGUSASN = (                       # bogus ASN ranges
+#[0     ,     0   ,      "Reserved"],  # as no 0 will be in a link 
+[23456 , 23456   ,      "AS_TRANS"], 
+[62464 , 131071  ,      "Reserved"],
+[133120, 196607  ,   "Unallocated"],
+[199680, 262143  ,   "Unallocated"],
+[263168, 327679  ,   "Unallocated"],
+[328704, 393215  ,   "Unallocated"],
+[394240, 4294967294, "Unallocated"],
+[4294967295, 4294967295,"Reserved"]
+);
 
 # MAIN =========================================================================
 my $filename = $ARGV[0] ? $ARGV[0] : "-";
@@ -45,11 +54,7 @@ while(<$fh>) {
   map {$LINKS{$_} = 1} (&getlink(&getpath($_)));
 }
 close $fh;
-&loadbogus($BOGUSFILE);
-foreach (keys %LINKS) {    # dump links with a bogus filter
-  next if ($_ !~ /^(\d+)\s+(\d+)$/ or isbogus($1) or isbogus($2));
-  print "$_\n";
-}
+map {print "$_\n"} grep {! &isbogus($_)} keys %LINKS;
 exit 0;
 
 # SUBROUTINES ==================================================================
@@ -79,7 +84,7 @@ sub filetype($) {     # guess the file type according to the % of printable ...
   return ($num_print/$num_read > 0.9 ? "TXT" : "BIN");
 }
 
-sub getpath($) {                 # read a line, return a path (or POSITION)
+sub getpath($) {                 # read a line, return a path (or get POSITION)
   my $line = shift;
   return unless ($line);
   if ($POSITION) {                          # have got the position
@@ -117,28 +122,13 @@ sub getlink($) {                 # read a path, return an array of links
   return @link;
 }
 
-sub loadbogus($) {
-  my $fn = shift;
-  open(my $fh, "<", $fn) or die "cannot open < $fn $!";
-  while(<$fh>) {
-    chomp;
-    $_ =~ s/^\s+//;
-    my @record = split /\s+/, $_ || "0";
-    if ($record[0] =~ /^(\d+)-(\d+)$/) {   # a range ASN1-ASN2
-      push @BOGUSASN, [$1, $2];
-    } elsif ($record[0] =~ /^\d+$/) {      # a single ASN
-      push @BOGUSASN, [$record[0], $record[0]];
-    }
-  } 
-  close $fh;
-}
-
 sub isbogus($) {
-  my $asn  = shift;
-  foreach my $range (@BOGUSASN) {
-    return 1 if ($asn >= $range->[0] and $asn <= $range->[1]);
+  my @asn = split "\t", $_[0];
+  foreach my $range (@BOGUSASN) {           # @BOGUSASN must be sorted
+    return 0 if ($asn[1] <  $range->[0]);   # ASN0 < ASN1 < lower bound
+    next     if ($asn[0] >  $range->[1]);   # upper bound < ASN0 < ASN1 
+    return 1 if ($asn[1] <= $range->[1] or $asn[0] >= $range->[0]);
   }
   return 0;
 }
-
 # END MARK
