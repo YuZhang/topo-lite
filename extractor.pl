@@ -3,17 +3,17 @@
 # Extractor -- extract AS links from BGP raw data
 # =============================================================================
 # USAGE: ./extractor.pl bgp_data_file
-# OUTPUT: {AS1}\t{AS2}\n  (with convention: AS1 < AS2)
+# OUTPUT: {AS1}    {AS2}     ["6"] (with convention AS1 < AS2, \t as seperator)
+#         appending "6" if it is observed in IPv6 networks.
 # NOTE:
-#   - expected file types inlucding [un]compressed MRT or 'show ip bgp' in 
+#   - expected file types include [un]compressed MRT or 'show ip bgp' in 
 #     plain, .bz[2], or .[g]z format. Also support plain text from STDIN.
 #   - see getlink() for AS-SET, loop path, or other wierd cases.
-#   - bogus ASN list from 
+#   - bogus ASN list is, subject to staleness, retrived on 2013-05-24 from 
 #     http://www.iana.org/assignments/as-numbers/as-numbers.txt
-#     retrived on 2013-05-24
 #
 # TODO:
-#   - Is there any space to improve performance, especially on regex?
+#   - to improve performance, especially on regex and string funcs?
 
 use strict;
 use warnings;
@@ -28,21 +28,24 @@ sub isbogus($);     # whether ASN is bogus
 #   - the header of 'show ip bgp' 
 #   - remember the position of 'Path'   
 #
+my $OPT6 = 1;                  # whether "6" is appended to links in IPv6  
+my $IPV6 = 0;                          # whether this is an IPv6 record 
 my $BGPDUMP = "bgpdump -mv -";         # bgpdump commond
-my $BOGUSFILE = "bogus-asn.txt";       # bogus ASN file name
-my $POSITION = 0;   # the start position of 'Path' in 'show ip bgp'
+#my $BGPDUMP = "bgpparser2";         # bgpdump commond
+my $NETWORK = 0;    # the start position of 'Network' in 'show ip bgp'
+my $ASPATH = 0;     # the start position of 'Path' in 'show ip bgp'
 my %LINKS = ();                        # hashtable of links          
 my @BOGUSASN = (                       # bogus ASN ranges
-#[0     ,     0   ,      "Reserved"],  # as no 0 will be in a link 
-[23456 , 23456   ,      "AS_TRANS"], 
-[62464 , 131071  ,      "Reserved"],
-[133120, 196607  ,   "Unallocated"],
-[199680, 262143  ,   "Unallocated"],
-[263168, 327679  ,   "Unallocated"],
-[328704, 393215  ,   "Unallocated"],
-[394240, 4294967294, "Unallocated"],
-[4294967295, 4294967295,"Reserved"]
-);
+#  [0    , 0              ],           # Reserved 
+   [23456 , 23456         ],           # AS_TRANS 
+   [62464 , 131071        ],           # Reserved
+   [133120, 196607        ],           # Unallocated
+   [199680, 262143        ],           # Unallocated
+   [263168, 327679        ],           # Unallocated
+   [328704, 393215        ],           # Unallocated
+   [394240, 4294967294    ],           # Unallocated
+   [4294967295, 4294967295]            # Reserved
+   );
 
 # MAIN =========================================================================
 my $filename = $ARGV[0] ? $ARGV[0] : "-";
@@ -84,17 +87,22 @@ sub filetype($) {     # guess the file type according to the % of printable ...
   return ($num_print/$num_read > 0.9 ? "TXT" : "BIN");
 }
 
-sub getpath($) {                 # read a line, return a path (or get POSITION)
+sub getpath($) {                 # read a line, return a path (or get ASPATH)
   my $line = shift;
   return unless ($line);
-  if ($POSITION) {                          # have got the position
-    return if (length($line) < $POSITION+2);# too short 
-    my $path = substr $line, $POSITION, -2; # path w/o ORGIN code at the end
+  if ($ASPATH) {                          # have got the position
+    return if (length($line) < $ASPATH+2);# too short 
+# If there is any ':' in first 5 chars of Network field, it is IPv6
+    $IPV6 = rindex(substr($line, $NETWORK, 5), ':') == -1 ? 0 : 1; 
+    my $path = substr $line, $ASPATH, -2; # path w/o ORGIN code at the end
     return $path;
-  } elsif ($line =~ /^([^\|]*\|){6}([^\|]*)\|/) { # the output of 'bgpdump -mv'
-    return $2;
-  } elsif ($line =~ /Next Hop.*Path/) {     # the header of 'show ip bgp'
-    $POSITION = index($line, "Path");       # remember the position of 'Path'
+  } elsif ($line =~ /^([^\|]*\|){5}([^\|]*)\|([^\|]*)\|/) { # the output of 'bgpdump -mv'
+# If there is any ':' in Network field, it is IPv6
+    $IPV6 = index($2, ':') == -1 ? 0 : 1; 
+    return $3;
+  } elsif ($line =~ /Network.*Path/) {     # the header of 'show ip bgp'
+    $NETWORK = index($line, "Network");    # remember the position of 'Network'
+    $ASPATH = index($line, "Path");        # remember the position of 'Path'
   }
   return;
 }
@@ -112,11 +120,13 @@ sub getlink($) {                 # read a path, return an array of links
       return if ($as !~ /^(\d+)\.(\d+)$/);  # neither asdot, then discard it!
       $as = ($1 << 16) + $2;                # if asdot, convert it to asplain
     }
-    next if ($last_as eq $as);              # skip appending AS
+    next if ($last_as eq $as);              # skip prepending ASes
     return if (exists $detect_loop{$as});   # loop! discard it! 
     $detect_loop{$as}=1 unless ($as==0);    # otherwise remember it, except token '0'
-# add a link with convention: AS1 < AS2, both LAST_AS and AS should not be token '0'
-    push @link, ($as < $last_as ?  "$as\t$last_as" : "$last_as\t$as") if ($last_as and $as);
+# add a link with convention: AS1 < AS2; if OPT6 == 1 and IPV6 == 1, append "\t6".
+    my $newlink = ($as < $last_as ?  "$as\t$last_as" : "$last_as\t$as");
+    $newlink .= ($IPV6? "\t6" : "") if ($OPT6);
+    push @link, $newlink if ($as and $last_as); # if two ASes is not '0'
     $last_as = $as;
   }
   return @link;
