@@ -11,9 +11,11 @@ Extract AS topology from BGP view projects
 
 - Prerequisite
     - *install* [a modified bgpdump by dkhenry](https://bitbucket.org/dkhenry/bgpdump) (which fixes bugs in the original one).
+    - issues with bgpdump (the orginal or the modified):                        
+        - In `bgpdump_attr.h`:`#define MAX_PREFIXES 1000` is too small for some update messages,
+          which leads to error messages, e.g., `[error] too many prefixes (1092 > 1000)`.   
     - bogus ASN list from [IANA's as-numbers.txt](http://www.iana.org/assignments/as-numbers/as-numbers.txt) retrived on 2013-05-24
-    - gzip and bzip2, although bgpdump can handle gzip and bz2 files
-    - large disk space if 
+    - use gzip and bzip2, although bgpdump can handle gzip and bz2 files 
 
 - Checklist for future maintainers
     - [ ] Have the URLs to the repositories been changed?  
