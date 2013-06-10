@@ -2,3 +2,6 @@
 *.in
 *.gz
 *.bz2
+*.swp
+*.bak
+
