@@ -105,6 +105,9 @@ sub getpath($) {                 # read a line, return a path (or get ASPATH)
   } elsif ($line =~ /Network.*Path/) {     # the header of 'show ip bgp'
     $NETWORK = index($line, "Network");    # remember the position of 'Network'
     $ASPATH = index($line, "Path");        # remember the position of 'Path'
+  } elsif ($line =~ /Destination.*Path/) { # another kind of header of 'show ip bgp'
+    $NETWORK = index($line, "Destination");  # remember the position of 'Destination'
+    $ASPATH = index($line, "Path");        # remember the position of 'Path'
   }
   return;
 }
