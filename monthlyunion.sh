@@ -30,3 +30,6 @@ filev4="${_v4monthlypath}/${DATE:0:6}.link.v4.gz"
 filev6="${_v6monthlypath}/${DATE:0:6}.link.v6.gz"
 [ -n "$filelistv4" ] && { gzip -dc ${filelistv4} | ${_binpath}/uniqc.pl | gzip -c > ${filev4};}
 [ -n "$filelistv6" ] && { gzip -dc ${filelistv6} | ${_binpath}/uniqc.pl | gzip -c > ${filev6};}
+
+${_binpath}/plot.sh
+

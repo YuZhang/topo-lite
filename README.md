@@ -4,7 +4,7 @@ topo-lite
 Extract AS topology from 4 BGP data collection projects
 
 - Configuration
-  - all scripts read `${TOPOLITEPATH}/topolite.conf.sh`, so `${TOPOLITEPATH}` should be exported.
+  - all scripts read `${TOPOLITEPATH}/topolite.conf.sh`, so ${TOPOLITEPATH} should be exported.
   - `topolite.conf.sh` :  declare paths to scripts, BGP raw data, topology data, log ...
   - the following commands need to be found in $PATH:
       `bgpdump`, `gzip`, `bzip2`, `cat`, `find`, `perl`, `grep`, `sed`, `date`
@@ -28,6 +28,8 @@ TOPOLITEPATH="/lab/topology/topolite/scripts"
   - `uniq.pl`          :  a `uniq` tool by utilizing perl's hash
   - `uniqs.pl`         :  a `uniq` tool seperating IPv4 and IPv6 topology data
   - `uniqc.pl`         :  a `uniq -c` tool 
+  - `plot.sh`          :  generate the evolution graph of Internet topology
+  - `monthly.gnuplot`  :  gnuplot script for drawing the evolution graph
 
 - Repositories of BGP data collection projects:
   - [University of Oregon Route Views](http://archive.routeviews.org)
