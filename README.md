@@ -4,7 +4,7 @@ topo-lite
 Extract AS topology from 4 BGP data collection projects
 
 - Configuration
-  - all scripts read `${TOPOLITEPATH}/topolite.conf.sh`, so ${TOPOLITEPATH} should be exported.
+  - all scripts read `${TOPOLITEPATH}/topolite.conf.sh`, so `${TOPOLITEPATH}` should be exported.
   - `topolite.conf.sh` :  declare paths to scripts, BGP raw data, topology data, log ...
   - the following commands need to be found in $PATH:
       `bgpdump`, `gzip`, `bzip2`, `cat`, `find`, `perl`, `grep`, `sed`, `date`
