@@ -41,10 +41,6 @@ my @BOGUSASN = (                       # bogus ASN ranges SORTED
 #  [0    , 0              ],           # Reserved
    [23456 , 23456         ],           # AS_TRANS
    [62464 , 131071        ],           # Reserved
-   [133120, 196607        ],           # Unallocated
-   [199680, 262143        ],           # Unallocated
-   [263168, 327679        ],           # Unallocated
-   [328704, 393215        ],           # Unallocated
    [394240, 4294967294    ],           # Unallocated
    [4294967295, 4294967295]            # Reserved
    );
