@@ -16,9 +16,10 @@ day=`echo $bgpdir | perl -pe 's/^.*(UPDATES|RIBS)\/[^\/]+\/([^\/]+).*$/$2/;'`
 date=`echo ${yearmonth}${day} | sed 's/\.//'` 
 linkfile="${_datapath}/${yearmonth}/${day}/${date}-${collector}.gz"
 [ -d $_datapath/$yearmonth/$day/ ] || mkdir -p $_datapath/$yearmonth/$day
-for bgpfile in `find -s $1 -type f` 
+#echo `date "+[%Y-%m-%d %H:%M:%S]"` $bgpdir
+for bgpfile in `find -s $bgpdir -type f` 
 do
-  echo `date "+[%Y-%m-%d %H:%M:%S]"` $bgpfile $linkfile
+  #echo `date "+[%Y-%m-%d %H:%M:%S]"` $bgpfile $linkfile
   ${_binpath}/extractor.pl $bgpfile | gzip -c >> $linkfile
 done
 gzip -dc $linkfile | ${_binpath}/uniq.pl | gzip -c > $linkfile.uniq 

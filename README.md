@@ -7,14 +7,12 @@ Extract AS topology from 4 BGP data collection projects
   - all scripts read `${TOPOLITEPATH}/topolite.conf.sh`, so ${TOPOLITEPATH} should be exported.
   - `topolite.conf.sh` :  declare paths to scripts, BGP raw data, topology data, log ...
   - the following commands need to be found in $PATH:
-      `bgpdump`, `gzip`, `bzip2`, `cat`, `find`, `perl`, `grep`, `sed`, `date`
+      `bgpdump`, `gzip`, `bzip2`, `cat`, `find`, `perl`, `grep`, `sed`, `date`, `gnuplot`
 
 - topo-lite runs via crontab:
 ```
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/lab/topology/topolite/scripts
-TOPOLITEPATH="/lab/topology/topolite/scripts"
-0 1 * * * /lab/topology/topo-lite/scripts/dailyextract.sh `date -j -v -3d +"%Y%m%d"` 0 
-0 23 * * 5 /lab/topology/topo-lite/scripts/monthlyunion.sh `date -j -v -1m +"%Y%m"`
+0 1 * * * /lab/topology/topolite/scripts/daily.sh
+0 23 * * 5 /lab/topology/topolite/scripts/monthly.sh
 ```
 
 - Scripts:
@@ -30,6 +28,8 @@ TOPOLITEPATH="/lab/topology/topolite/scripts"
   - `uniqc.pl`         :  a `uniq -c` tool 
   - `plot.sh`          :  generate the evolution graph of Internet topology
   - `monthly.gnuplot`  :  gnuplot script for drawing the evolution graph
+  - `daily.sh`         :  daily routine
+  - `monthly.sh`       :  monthly routine
 
 - Repositories of BGP data collection projects:
   - [University of Oregon Route Views](http://archive.routeviews.org)

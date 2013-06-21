@@ -12,7 +12,6 @@ for ((i=0; i <= ${DAYS}; i++)); do
   DATE=`date -j -v-${i}d +"%Y%m%d" ${ENDDATE}0000`
   linkdir="$_datapath/${DATE:0:4}.${DATE:4:2}/${DATE:6:2}"
   [ -d $linkdir ] || continue
-  echo ${v4file}
   v4dailydir="${_v4dailypath}/${DATE:0:4}.${DATE:4:2}"
   v6dailydir="${_v6dailypath}/${DATE:0:4}.${DATE:4:2}"
   [ -d ${v4dailydir} ] || mkdir -p ${v4dailydir}

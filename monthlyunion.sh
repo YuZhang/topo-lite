@@ -12,7 +12,6 @@ ENDDATE=`date -j -v +1m -v -1d +"%Y%m%d" ${1}010000`
 DAYS=${ENDDATE:6:2}   # the number of last day is the length of last month 
 filelistv4=""
 filelistv6=""
-echo "${ENDDATE:0:6}"
 # get the list of daily link files
 for ((i=0; i < ${DAYS}; i++)); do
   DATE=`date -j -v-${i}d +"%Y%m%d" ${ENDDATE}0000`
@@ -25,7 +24,6 @@ for ((i=0; i < ${DAYS}; i++)); do
   [ -f $linkfilev6 ] && filelistv6="${filelistv6} ${linkfilev6}" 
 done
 # monthly link file
-echo $filelistv4
 filev4="${_v4monthlypath}/${DATE:0:6}.link.v4.gz"
 filev6="${_v6monthlypath}/${DATE:0:6}.link.v6.gz"
 [ -n "$filelistv4" ] && { gzip -dc ${filelistv4} | ${_binpath}/uniqc.pl | gzip -c > ${filev4};}
