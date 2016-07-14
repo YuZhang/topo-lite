@@ -1,6 +1,15 @@
 topo-lite
 =========
 
+NEW! new scripts are in `newscripts`.
+
+- `puller.pl`	:	`wget` BGP data from `collectors.txt`.
+- `extractor.pl`	:	extract AS-AS links, prefix origins and monitors.
+
+NOTE: `collectors.txt` is stale and to be updated.
+
+=========
+
 Extract AS topology from 4 BGP data collection projects
 
 - Configuration
